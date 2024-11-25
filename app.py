@@ -4,7 +4,7 @@ from pathlib import Path
 import json
 import os
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from PyPDF2 import PdfReader
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
@@ -1124,6 +1124,17 @@ def daily_payments():
         return jsonify(daily.to_dict(orient='records'))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/dashboard')
+def serve_dashboard():
+    return send_file('templates/index.html')
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 @app.route('/cashflow/summary', methods=['GET'])
 def entity_summary():
