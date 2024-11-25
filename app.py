@@ -16,7 +16,7 @@ from datetime import datetime
 import pandas as pd 
 
 class Config:
-    ***REMOVED*** = os.getenv('***REMOVED***')
+    api_key = os.getenv('api_key')
     SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN')
     GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME')
     
@@ -579,7 +579,7 @@ class InvoiceProcessor:
         self.sheet = self.google_client.open(Config.GOOGLE_SHEET_NAME).sheet1
         self.processed_invoices = self.load_processed_invoices()
         self.config = Config()
-        self.claude_client = Anthropic(***REMOVED***=self.config.***REMOVED***)
+        self.claude_client = Anthropic(api_key=self.config.api_key)
 
     def detect_currency(self, text: str, amount: str) -> tuple:
         """
