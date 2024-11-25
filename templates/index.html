@@ -4,30 +4,24 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Cashflow Dashboard</title>
-    <!-- React and ReactDOM -->
-    <script src="https://unpkg.com/react@18/umd/react.production.min.js" crossorigin></script>
-    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js" crossorigin></script>
+    <!-- React -->
+    <script src="https://unpkg.com/react@18/umd/react.production.min.js"></script>
+    <script src="https://unpkg.com/react-dom@18/umd/react-dom.production.min.js"></script>
     <!-- Babel -->
     <script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
     <!-- Tailwind CSS -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
-    <!-- Recharts -->
-    <script src="https://unpkg.com/recharts@2.1.9/umd/Recharts.min.js"></script>
 </head>
 <body>
     <div id="root">Loading Dashboard...</div>
-    <script type="text/babel" data-type="module">
-        // Inline the dashboard code to avoid module issues
-        const { useState, useEffect } = React;
-        const { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } = Recharts;
-
+    
+    <script type="text/babel">
         function Dashboard() {
-            const [data, setData] = useState(null);
-            const [loading, setLoading] = useState(true);
-            const [error, setError] = useState(null);
+            const [data, setData] = React.useState(null);
+            const [loading, setLoading] = React.useState(true);
+            const [error, setError] = React.useState(null);
 
-            useEffect(() => {
-                console.log('Fetching data...');
+            React.useEffect(() => {
                 fetch('/cashflow')
                     .then(res => res.json())
                     .then(data => {
@@ -43,20 +37,35 @@
             }, []);
 
             if (loading) {
-                return <div className="p-8">Loading dashboard data...</div>;
+                return (
+                    <div className="p-8 text-xl">
+                        Loading dashboard data...
+                    </div>
+                );
             }
 
             if (error) {
-                return <div className="p-8 text-red-500">{error}</div>;
+                return (
+                    <div className="p-8 text-red-500">
+                        {error}
+                    </div>
+                );
             }
 
             return (
                 <div className="min-h-screen bg-gray-50 p-8">
                     <h1 className="text-3xl font-bold mb-8">Cashflow Dashboard</h1>
+                    
+                    {/* Summary Cards */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
                         <div className="bg-white p-6 rounded-lg shadow">
                             <h3 className="text-lg font-semibold mb-2">Total Upcoming Payments</h3>
-                            <p className="text-2xl font-bold">{data?.total_upcoming_payments || 0} AED</p>
+                            <p className="text-2xl font-bold">
+                                {new Intl.NumberFormat('en-US', {
+                                    style: 'currency',
+                                    currency: 'AED'
+                                }).format(data?.total_upcoming_payments || 0)}
+                            </p>
                         </div>
                         <div className="bg-white p-6 rounded-lg shadow">
                             <h3 className="text-lg font-semibold mb-2">Period</h3>
@@ -67,8 +76,10 @@
                             <p className="text-2xl font-bold">{data?.summary?.total_invoices || 0}</p>
                         </div>
                     </div>
+
+                    {/* Recommendations Table */}
                     {data?.daily_recommendations && (
-                        <div className="bg-white rounded-lg shadow overflow-hidden">
+                        <div className="bg-white rounded-lg shadow">
                             <h2 className="text-xl font-semibold p-6 border-b">Payment Recommendations</h2>
                             <div className="overflow-x-auto">
                                 <table className="w-full">
@@ -82,10 +93,15 @@
                                     </thead>
                                     <tbody className="divide-y divide-gray-200">
                                         {data.daily_recommendations.map((rec, index) => (
-                                            <tr key={index}>
+                                            <tr key={index} className="hover:bg-gray-50">
                                                 <td className="px-6 py-4 whitespace-nowrap">{rec.date}</td>
                                                 <td className="px-6 py-4">{rec.entity}</td>
-                                                <td className="px-6 py-4">{rec.amount} AED</td>
+                                                <td className="px-6 py-4">
+                                                    {new Intl.NumberFormat('en-US', {
+                                                        style: 'currency',
+                                                        currency: 'AED'
+                                                    }).format(rec.amount)}
+                                                </td>
                                                 <td className="px-6 py-4">{rec.recommendation}</td>
                                             </tr>
                                         ))}
