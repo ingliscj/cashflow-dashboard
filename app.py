@@ -11,14 +11,20 @@ from decimal import Decimal
 from typing import Optional, Dict, List
 from datetime import datetime
 import pandas as pd 
+from dotenv import load_dotenv
 
 class Config:
-    SLACK_BOT_TOKEN = "xoxb-828920138790-8055359981077-mxOeJkiOID1lLGFMOjlYs31R"
-    GOOGLE_SHEET_NAME = "Invoice Tracker"
-    LOCAL_FOLDER = "/Users/cameronziina/Documents/Invoices/"
-    PROCESSED_FILES_LOG = "processed_invoices.json"
-    GOOGLE_CREDENTIALS_FILE = "/Users/cameronziina/credentials.json"
-    GOOGLE_SHEET_KEY = "1M08lmC5tvrtY44Z53SpUmYjvrVAavoc7JVHRe54cY0Y"
+    # Load the environment variables from the .env file
+    load_dotenv()
+
+    # Access the environment variables
+    ***REMOVED*** = os.getenv('***REMOVED***')
+    SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN')
+    GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME')
+    LOCAL_FOLDER = os.getenv('LOCAL_FOLDER')
+    PROCESSED_FILES_LOG = os.getenv('PROCESSED_FILES_LOG')
+    GOOGLE_CREDENTIALS_FILE = os.getenv('GOOGLE_CREDENTIALS_FILE')
+    GOOGLE_SHEET_KEY = os.getenv('GOOGLE_SHEET_KEY')
     SUPPORTED_CURRENCIES = ['AED', 'USD', 'GBP', 'EUR']
     DEFAULT_CURRENCY = 'AED'
 
@@ -540,7 +546,8 @@ class InvoiceProcessor:
         self.google_client = gspread.authorize(creds)
         self.sheet = self.google_client.open(Config.GOOGLE_SHEET_NAME).sheet1
         self.processed_invoices = self.load_processed_invoices()
-        self.claude_client = Anthropic(***REMOVED***="***REMOVED***")
+        self.config = Config()
+        self.claude_client = Anthropic(***REMOVED***=self.config.***REMOVED***)
 
     def detect_currency(self, text: str, amount: str) -> tuple:
         """
