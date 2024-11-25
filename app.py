@@ -1,3 +1,5 @@
+import tempfile
+from pathlib import Path
 import json
 import os
 import requests
@@ -11,20 +13,31 @@ from decimal import Decimal
 from typing import Optional, Dict, List
 from datetime import datetime
 import pandas as pd 
-from dotenv import load_dotenv
 
 class Config:
-    # Load the environment variables from the .env file
-    load_dotenv()
-
-    # Access the environment variables
     ***REMOVED*** = os.getenv('***REMOVED***')
     SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN')
     GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME')
-    LOCAL_FOLDER = os.getenv('LOCAL_FOLDER')
-    PROCESSED_FILES_LOG = os.getenv('PROCESSED_FILES_LOG')
+    
+    # Use temp directory for cloud environments
+    LOCAL_FOLDER = os.getenv('LOCAL_FOLDER', tempfile.gettempdir())
+    PROCESSED_FILES_LOG = os.getenv('PROCESSED_FILES_LOG', 
+                                  str(Path(tempfile.gettempdir()) / 'processed.json'))
+    
+    # Handle Google credentials for cloud
     GOOGLE_CREDENTIALS_FILE = os.getenv('GOOGLE_CREDENTIALS_FILE')
+    GOOGLE_CREDENTIALS_JSON = os.getenv('GOOGLE_CREDENTIALS_JSON')  # Add this
+    
+    # If JSON content is provided, write it to a file
+    if GOOGLE_CREDENTIALS_JSON and not os.path.exists(GOOGLE_CREDENTIALS_FILE):
+        os.makedirs(os.path.dirname(GOOGLE_CREDENTIALS_FILE), exist_ok=True)
+        with open(GOOGLE_CREDENTIALS_FILE, 'w') as f:
+            f.write(GOOGLE_CREDENTIALS_JSON)
+    
     GOOGLE_SHEET_KEY = os.getenv('GOOGLE_SHEET_KEY')
+
+
+    
     SUPPORTED_CURRENCIES = ['AED', 'USD', 'GBP', 'EUR']
     DEFAULT_CURRENCY = 'AED'
 
@@ -1122,9 +1135,8 @@ def slack_events():
     return jsonify({"status": "ok"})
 
 def process_slack_file(file_id: str):
-    """Download and process file from Slack"""
+    """Download and process file from Slack with cloud storage handling"""
     try:
-        # Get file info
         file_info_url = f"https://slack.com/api/files.info"
         headers = {"Authorization": f"Bearer {Config.SLACK_BOT_TOKEN}"}
         params = {"file": file_id}
@@ -1139,24 +1151,26 @@ def process_slack_file(file_id: str):
         file_url = file_info["file"]["url_private"]
         file_name = file_info["file"]["name"]
         
-        # Download file
-        file_response = requests.get(file_url, headers=headers, stream=True)
-        if file_response.ok:
-            file_path = os.path.join(Config.LOCAL_FOLDER, file_name)
-            os.makedirs(Config.LOCAL_FOLDER, exist_ok=True)
-            
-            with open(file_path, "wb") as f:
-                f.write(file_response.content)
-            
-            print(f"Processing file: {file_path}")
-            success = processor.process_pdf(file_path)
-            
-            if success:
-                print(f"Successfully processed {file_name}")
+        # Use temporary file
+        with tempfile.NamedTemporaryFile(delete=False, suffix='.pdf') as tmp_file:
+            # Download file
+            file_response = requests.get(file_url, headers=headers, stream=True)
+            if file_response.ok:
+                tmp_file.write(file_response.content)
+                tmp_file.flush()
+                
+                print(f"Processing file: {tmp_file.name}")
+                success = processor.process_pdf(tmp_file.name)
+                
+                if success:
+                    print(f"Successfully processed {file_name}")
+                else:
+                    print(f"Failed to process {file_name}")
             else:
-                print(f"Failed to process {file_name}")
-        else:
-            print(f"Error downloading file: {file_response.status_code}")
+                print(f"Error downloading file: {file_response.status_code}")
+                
+            # Clean up
+            os.unlink(tmp_file.name)
             
     except Exception as e:
         print(f"Error processing Slack file: {e}")
@@ -1412,4 +1426,5 @@ def debug_cashflow():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
-    app.run(host='0.0.0.0',port=3001, debug=True)
+    port = int(os.getenv("PORT", 3001))
+    app.run(host='0.0.0.0', port=port)
