@@ -20,6 +20,15 @@ jobs:
           pip install python-dotenv
           pip install requests flask PyPDF2 oauth2client gspread anthropic pandas
       - name: Run the application
+        env:
+          API_KEY: ${{ secrets.API_KEY }}
+          SLACK_BOT_TOKEN: ${{ secrets.SLACK_BOT_TOKEN }}
+          GOOGLE_SHEET_KEY: ${{ secrets.GOOGLE_SHEET_KEY }}
+          GOOGLE_SHEET_NAME: ${{ secrets.GOOGLE_SHEET_NAME }}
+          LOCAL_FOLDER: ${{ secrets.LOCAL_FOLDER }}
+          PROCESSED_FILES_LOG: ${{ secrets.PROCESSED_FILES_LOG }}
+          GOOGLE_CREDENTIALS_FILE: ${{ secrets.GOOGLE_CREDENTIALS_FILE }}
+    # Add any other environment variables you need
         run: python app.py
       - uses: peaceiris/actions-gh-pages@v3
         with:
