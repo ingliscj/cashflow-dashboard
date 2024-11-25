@@ -16,8 +16,9 @@ jobs:
           python-version: 3.7
       - name: Install dependencies
         run: |
-          python3 -m pip install --upgrade pip
-          pip install requests flask PyPDF2 oauth2client gspread anthropic pandas dotenv
+          python3 -m pip install --upgrade pip 
+          pip install python-dotenv
+          pip install requests flask PyPDF2 oauth2client gspread anthropic pandas
       - name: Run the application
         run: python app.py
       - uses: peaceiris/actions-gh-pages@v3
