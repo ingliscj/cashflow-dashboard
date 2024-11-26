@@ -1,9 +1,10 @@
+import base64
 import tempfile
 from pathlib import Path
 import json
 import os
 import requests
-from flask import Flask, request, jsonify
+from flask import Flask, request, jsonify, send_file, send_from_directory
 from PyPDF2 import PdfReader
 from oauth2client.service_account import ServiceAccountCredentials
 import gspread
@@ -19,23 +20,41 @@ class Config:
     SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN')
     GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME')
     
-    # Use temp directory for cloud environments
-    LOCAL_FOLDER = os.getenv('LOCAL_FOLDER', tempfile.gettempdir())
-    PROCESSED_FILES_LOG = os.getenv('PROCESSED_FILES_LOG', 
-                                  str(Path(tempfile.gettempdir()) / 'processed.json'))
+    # Define base temp directory and app directory
+    BASE_TEMP_DIR = tempfile.gettempdir()
+    APP_DIR = os.path.join(BASE_TEMP_DIR, 'cashflow-app')
     
-    # Handle Google credentials for cloud
-    GOOGLE_CREDENTIALS_FILE = os.getenv('GOOGLE_CREDENTIALS_FILE')
-    GOOGLE_CREDENTIALS_JSON = os.getenv('GOOGLE_CREDENTIALS_JSON')  # Add this
+    # Create app directory if it doesn't exist
+    try:
+        os.makedirs(APP_DIR, exist_ok=True)
+    except Exception as e:
+        print(f"Warning: Could not create app directory: {e}")
+        APP_DIR = BASE_TEMP_DIR
+
+    # Set up local paths
+    LOCAL_FOLDER = APP_DIR
+    PROCESSED_FILES_LOG = os.path.join(APP_DIR, 'processed.json')
     
-    # If JSON content is provided, write it to a file
-    if GOOGLE_CREDENTIALS_JSON and not os.path.exists(GOOGLE_CREDENTIALS_FILE):
-        os.makedirs(os.path.dirname(GOOGLE_CREDENTIALS_FILE), exist_ok=True)
-        with open(GOOGLE_CREDENTIALS_FILE, 'w') as f:
-            f.write(GOOGLE_CREDENTIALS_JSON)
+    # Handle Google credentials
+    GOOGLE_CREDENTIALS_JSON = os.getenv('GOOGLE_CREDENTIALS_JSON')
+    GOOGLE_CREDENTIALS_FILE = os.path.join(APP_DIR, 'google_credentials.json')
+    
+    # Set up Google credentials file
+    try:
+        if GOOGLE_CREDENTIALS_JSON:
+            print("Found Google credentials in environment")
+            credentials_content = base64.b64decode(GOOGLE_CREDENTIALS_JSON).decode('utf-8')
+            with open(GOOGLE_CREDENTIALS_FILE, 'w') as f:
+                f.write(credentials_content)
+            print(f"Successfully wrote credentials to {GOOGLE_CREDENTIALS_FILE}")
+        else:
+            print("Warning: No Google credentials found in environment")
+            GOOGLE_CREDENTIALS_FILE = None
+    except Exception as e:
+        print(f"Error setting up Google credentials: {e}")
+        GOOGLE_CREDENTIALS_FILE = None
     
     GOOGLE_SHEET_KEY = os.getenv('GOOGLE_SHEET_KEY')
-
 
     
     SUPPORTED_CURRENCIES = ['AED', 'USD', 'GBP', 'EUR']
@@ -1105,6 +1124,17 @@ def daily_payments():
         return jsonify(daily.to_dict(orient='records'))
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
+@app.route('/dashboard')
+def serve_dashboard():
+    return send_file('templates/index.html')
+
+@app.after_request
+def after_request(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
 
 @app.route('/cashflow/summary', methods=['GET'])
 def entity_summary():
