@@ -31,22 +31,45 @@ class Config:
     PROCESSED_FILES_LOG = os.getenv('PROCESSED_FILES_LOG', os.path.join(APP_DIR, 'processed.json'))
     
     # Handle Google credentials
-    GOOGLE_CREDENTIALS_JSON = os.getenv('GOOGLE_CREDENTIALS_FILE')  # Changed to match CodeSpaces secret name
-    GOOGLE_CREDENTIALS_FILE = os.path.join(APP_DIR, 'google_credentials.json')
+    GOOGLE_CREDS_BASE64 = os.getenv('GOOGLE_CREDENTIALS_FILE')  # Get base64 content
+    GOOGLE_CREDS_PATH = os.path.join(APP_DIR, 'google_credentials.json')  # Where to save decoded file
     
     # Set up Google credentials file
     try:
-        if GOOGLE_CREDENTIALS_JSON:
+        if GOOGLE_CREDS_BASE64:
             print("Found Google credentials in environment")
-            credentials_content = base64.b64decode(GOOGLE_CREDENTIALS_JSON).decode('utf-8')
+            print(f"Credentials length: {len(GOOGLE_CREDS_BASE64)}")
             
-            # Ensure APP_DIR exists
-            os.makedirs(APP_DIR, exist_ok=True)
+            # Ensure string is properly padded for base64
+            padding_needed = len(GOOGLE_CREDS_BASE64) % 4
+            if padding_needed:
+                GOOGLE_CREDS_BASE64 += '=' * (4 - padding_needed)
+                print("Added padding to base64 string")
             
-            # Write credentials to file
-            with open(GOOGLE_CREDENTIALS_FILE, 'w') as f:
-                f.write(credentials_content)
-            print(f"Successfully wrote credentials to {GOOGLE_CREDENTIALS_FILE}")
+            try:
+                credentials_content = base64.b64decode(GOOGLE_CREDS_BASE64).decode('utf-8')
+                print("Successfully decoded credentials")
+                
+                # Ensure APP_DIR exists
+                os.makedirs(APP_DIR, exist_ok=True)
+                print(f"Created/verified APP_DIR: {APP_DIR}")
+                
+                # Write credentials to file
+                with open(GOOGLE_CREDS_PATH, 'w') as f:
+                    f.write(credentials_content)
+                print(f"Successfully wrote credentials to {GOOGLE_CREDS_PATH}")
+                
+                # Verify the file exists and is readable
+                if os.path.exists(GOOGLE_CREDS_PATH):
+                    print("Verified credentials file exists")
+                    GOOGLE_CREDENTIALS_FILE = GOOGLE_CREDS_PATH
+                else:
+                    print("Warning: Credentials file not found after writing")
+                    GOOGLE_CREDENTIALS_FILE = None
+                    
+            except Exception as decode_error:
+                print(f"Error decoding credentials: {decode_error}")
+                GOOGLE_CREDENTIALS_FILE = None
         else:
             print("Warning: No Google credentials found in environment")
             GOOGLE_CREDENTIALS_FILE = None
@@ -65,7 +88,7 @@ class Config:
         required_vars = {
             'API_KEY': cls.ANTHROPIC_API_KEY,
             'SLACK_BOT_TOKEN': cls.SLACK_BOT_TOKEN,
-            'GOOGLE_CREDENTIALS_FILE': cls.GOOGLE_CREDENTIALS_JSON,
+            'GOOGLE_CREDENTIALS_FILE': cls.GOOGLE_CREDS_BASE64,
             'GOOGLE_SHEET_NAME': cls.GOOGLE_SHEET_NAME,
             'GOOGLE_SHEET_KEY': cls.GOOGLE_SHEET_KEY
         }
@@ -73,11 +96,24 @@ class Config:
         for var_name, var_value in required_vars.items():
             if not var_value:
                 missing_vars.append(var_name)
+            else:
+                print(f"Found {var_name} in environment")
         
         if missing_vars:
             print(f"Missing required environment variables: {', '.join(missing_vars)}")
             return False
         return True
+
+    @classmethod
+    def debug_print_env(cls):
+        """Print debug information about environment variables"""
+        print("\nEnvironment Debug Information:")
+        print(f"ANTHROPIC_API_KEY present: {bool(cls.ANTHROPIC_API_KEY)}")
+        print(f"SLACK_BOT_TOKEN present: {bool(cls.SLACK_BOT_TOKEN)}")
+        print(f"GOOGLE_CREDS_BASE64 length: {len(cls.GOOGLE_CREDS_BASE64) if cls.GOOGLE_CREDS_BASE64 else 0}")
+        print(f"GOOGLE_SHEET_NAME: {cls.GOOGLE_SHEET_NAME}")
+        print(f"APP_DIR exists: {os.path.exists(cls.APP_DIR)}")
+        print(f"Credentials file exists: {os.path.exists(cls.GOOGLE_CREDENTIALS_FILE) if cls.GOOGLE_CREDENTIALS_FILE else False}")
 
     
 
@@ -1485,6 +1521,7 @@ if __name__ == "__main__":
     if not Config.validate_config():
         print("Missing required configuration. Please check your environment variables.")
         sys.exit(1)
+
     
     port = int(os.getenv("PORT", 3001))
     app.run(host='0.0.0.0', port=port)
