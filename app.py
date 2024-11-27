@@ -1467,6 +1467,25 @@ def cashflow_dashboard():
             "payments_by_entity": {},
             "daily_recommendations": []
         }), 500
+
+@app.route('/debug/email')
+def debug_email():
+    try:
+        return jsonify({
+            "email_processor_running": hasattr(email_processor, 'scheduler') and email_processor.scheduler.running,
+            "gmail_credentials": {
+                "exists": os.path.exists(GmailConfig.GMAIL_CREDS_PATH),
+                "path": GmailConfig.GMAIL_CREDS_PATH
+            },
+            "token": {
+                "exists": os.path.exists(GmailConfig.TOKEN_PATH),
+                "path": GmailConfig.TOKEN_PATH
+            }
+        })
+    except Exception as e:
+        return jsonify({"error": str(e)})
+
+
 @app.route('/debug/cashflow', methods=['GET'])
 def debug_cashflow():
     """Debug endpoint for cashflow data"""
