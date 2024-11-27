@@ -16,27 +16,22 @@ from datetime import datetime
 import pandas as pd 
 
 class Config:
-    api_key = os.getenv('api_key')
+    # API Keys and Tokens
+    ANTHROPIC_API_KEY = os.getenv('API_KEY')  
     SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN')
-    GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME')
     
-    # Define base temp directory and app directory
+    # Google Sheet Configuration
+    GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME')
+    GOOGLE_SHEET_KEY = os.getenv('GOOGLE_SHEET_KEY')
+    
+    # File paths and directories
     BASE_TEMP_DIR = tempfile.gettempdir()
     APP_DIR = os.path.join(BASE_TEMP_DIR, 'cashflow-app')
-    
-    # Create app directory if it doesn't exist
-    try:
-        os.makedirs(APP_DIR, exist_ok=True)
-    except Exception as e:
-        print(f"Warning: Could not create app directory: {e}")
-        APP_DIR = BASE_TEMP_DIR
-
-    # Set up local paths
-    LOCAL_FOLDER = APP_DIR
-    PROCESSED_FILES_LOG = os.path.join(APP_DIR, 'processed.json')
+    LOCAL_FOLDER = os.getenv('LOCAL_FOLDER', APP_DIR)
+    PROCESSED_FILES_LOG = os.getenv('PROCESSED_FILES_LOG', os.path.join(APP_DIR, 'processed.json'))
     
     # Handle Google credentials
-    GOOGLE_CREDENTIALS_JSON = os.getenv('GOOGLE_CREDENTIALS_JSON')
+    GOOGLE_CREDENTIALS_JSON = os.getenv('GOOGLE_CREDENTIALS_FILE')  # Changed to match CodeSpaces secret name
     GOOGLE_CREDENTIALS_FILE = os.path.join(APP_DIR, 'google_credentials.json')
     
     # Set up Google credentials file
@@ -44,6 +39,11 @@ class Config:
         if GOOGLE_CREDENTIALS_JSON:
             print("Found Google credentials in environment")
             credentials_content = base64.b64decode(GOOGLE_CREDENTIALS_JSON).decode('utf-8')
+            
+            # Ensure APP_DIR exists
+            os.makedirs(APP_DIR, exist_ok=True)
+            
+            # Write credentials to file
             with open(GOOGLE_CREDENTIALS_FILE, 'w') as f:
                 f.write(credentials_content)
             print(f"Successfully wrote credentials to {GOOGLE_CREDENTIALS_FILE}")
@@ -53,8 +53,33 @@ class Config:
     except Exception as e:
         print(f"Error setting up Google credentials: {e}")
         GOOGLE_CREDENTIALS_FILE = None
+
+    # Initialize Anthropic client configuration
+    if not ANTHROPIC_API_KEY:
+        print("Warning: No Anthropic API key found in environment")
+
+    # Validate required configurations
+    @classmethod
+    def validate_config(cls):
+        missing_vars = []
+        required_vars = {
+            'API_KEY': cls.ANTHROPIC_API_KEY,
+            'SLACK_BOT_TOKEN': cls.SLACK_BOT_TOKEN,
+            'GOOGLE_CREDENTIALS_FILE': cls.GOOGLE_CREDENTIALS_JSON,
+            'GOOGLE_SHEET_NAME': cls.GOOGLE_SHEET_NAME,
+            'GOOGLE_SHEET_KEY': cls.GOOGLE_SHEET_KEY
+        }
+        
+        for var_name, var_value in required_vars.items():
+            if not var_value:
+                missing_vars.append(var_name)
+        
+        if missing_vars:
+            print(f"Missing required environment variables: {', '.join(missing_vars)}")
+            return False
+        return True
+
     
-    GOOGLE_SHEET_KEY = os.getenv('GOOGLE_SHEET_KEY')
 
     
     SUPPORTED_CURRENCIES = ['AED', 'USD', 'GBP', 'EUR']
@@ -579,7 +604,8 @@ class InvoiceProcessor:
         self.sheet = self.google_client.open(Config.GOOGLE_SHEET_NAME).sheet1
         self.processed_invoices = self.load_processed_invoices()
         self.config = Config()
-        self.claude_client = Anthropic(api_key=self.config.api_key)
+        self.claude_client = Anthropic(api_key=Config.ANTHROPIC_API_KEY)  # Updated to use correct env var
+
 
     def detect_currency(self, text: str, amount: str) -> tuple:
         """
@@ -1456,5 +1482,9 @@ def debug_cashflow():
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
+    if not Config.validate_config():
+        print("Missing required configuration. Please check your environment variables.")
+        sys.exit(1)
+    
     port = int(os.getenv("PORT", 3001))
     app.run(host='0.0.0.0', port=port)
