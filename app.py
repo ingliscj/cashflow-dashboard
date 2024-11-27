@@ -1107,6 +1107,9 @@ app = Flask(__name__)
 processor = InvoiceProcessor()
 optimizer = CashflowOptimizer()
 app.json_encoder = JSONEncoder
+from email_processor import EmailProcessor
+email_processor = EmailProcessor()        
+
 
 @app.route('/')
 def home():
