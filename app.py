@@ -600,7 +600,7 @@ class InvoiceProcessor:
         try:
             print("Initializing InvoiceProcessor...")
             print(f"Config.GOOGLE_CREDENTIALS_FILE = {Config.GOOGLE_CREDENTIALS_FILE}")
-            print(f"Config.GOOGLE_CREDS_BASE64 exists: {bool(Config.GOOGLE_CREDS_BASE64)}")
+            print(f"Config.GOOGLE_CREDENTIALS_JSON exists: {bool(Config.GOOGLE_CREDENTIALS_JSON)}")
             print(f"Config.APP_DIR = {Config.APP_DIR}")
             
             scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
