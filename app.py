@@ -633,14 +633,31 @@ class CashflowOptimizer:
 
 class InvoiceProcessor:
     def __init__(self):
-        # Initialize Google Sheets client
-        scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-        creds = ServiceAccountCredentials.from_json_keyfile_name(Config.GOOGLE_CREDENTIALS_FILE, scope)
-        self.google_client = gspread.authorize(creds)
-        self.sheet = self.google_client.open(Config.GOOGLE_SHEET_NAME).sheet1
-        self.processed_invoices = self.load_processed_invoices()
-        self.config = Config()
-        self.claude_client = Anthropic(api_key=Config.ANTHROPIC_API_KEY)  # Updated to use correct env var
+        try:
+            print("Initializing InvoiceProcessor...")
+            print(f"Config.GOOGLE_CREDENTIALS_FILE = {Config.GOOGLE_CREDENTIALS_FILE}")
+            print(f"Config.GOOGLE_CREDS_BASE64 exists: {bool(Config.GOOGLE_CREDS_BASE64)}")
+            print(f"Config.APP_DIR = {Config.APP_DIR}")
+            
+            scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
+            
+            if not Config.GOOGLE_CREDENTIALS_FILE:
+                raise ValueError("Google credentials file path is None")
+                
+            if not os.path.exists(Config.GOOGLE_CREDENTIALS_FILE):
+                raise FileNotFoundError(f"Credentials file not found at: {Config.GOOGLE_CREDENTIALS_FILE}")
+                
+            creds = ServiceAccountCredentials.from_json_keyfile_name(Config.GOOGLE_CREDENTIALS_FILE, scope)
+            self.google_client = gspread.authorize(creds)
+            self.sheet = self.google_client.open(Config.GOOGLE_SHEET_NAME).sheet1
+            self.processed_invoices = self.load_processed_invoices()
+            self.config = Config()
+            self.claude_client = Anthropic(api_key=Config.ANTHROPIC_API_KEY)
+        
+        except Exception as e:
+            print(f"Error initializing InvoiceProcessor: {str(e)}")
+            print(f"Current working directory: {os.getcwd()}")
+            raise
 
 
     def detect_currency(self, text: str, amount: str) -> tuple:
