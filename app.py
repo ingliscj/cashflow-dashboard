@@ -17,106 +17,61 @@ from datetime import datetime
 import pandas as pd 
 
 class Config:
-    # API Keys and Tokens
-    ANTHROPIC_API_KEY = os.getenv('API_KEY')  
-    SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN')
+    def __init__(self):
+        # Move environment variable loading to initialization
+        self.ANTHROPIC_API_KEY = os.getenv('API_KEY')
+        self.SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN')
+        self.GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME')
+        self.GOOGLE_SHEET_KEY = os.getenv('GOOGLE_SHEET_KEY')
+        
+        # File paths and directories
+        self.BASE_TEMP_DIR = tempfile.gettempdir()
+        self.APP_DIR = os.path.join(self.BASE_TEMP_DIR, 'cashflow-app')
+        self.LOCAL_FOLDER = os.getenv('LOCAL_FOLDER', self.APP_DIR)
+        self.PROCESSED_FILES_LOG = os.getenv('PROCESSED_FILES_LOG', os.path.join(self.APP_DIR, 'processed.json'))
+        
+        # Handle Google credentials
+        self.GOOGLE_CREDS_BASE64 = os.getenv('GOOGLE_CREDENTIALS_FILE')
+        self.GOOGLE_CREDS_PATH = os.path.join(self.APP_DIR, 'google_credentials.json')
+        self.GOOGLE_CREDENTIALS_FILE = None
+        
+        self._setup_google_credentials()
     
-    # Google Sheet Configuration
-    GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME')
-    GOOGLE_SHEET_KEY = os.getenv('GOOGLE_SHEET_KEY')
-    
-    # File paths and directories
-    BASE_TEMP_DIR = tempfile.gettempdir()
-    APP_DIR = os.path.join(BASE_TEMP_DIR, 'cashflow-app')
-    LOCAL_FOLDER = os.getenv('LOCAL_FOLDER', APP_DIR)
-    PROCESSED_FILES_LOG = os.getenv('PROCESSED_FILES_LOG', os.path.join(APP_DIR, 'processed.json'))
-    
-    # Handle Google credentials
-    GOOGLE_CREDS_BASE64 = os.getenv('GOOGLE_CREDENTIALS_FILE')  # Get base64 content
-    GOOGLE_CREDS_PATH = os.path.join(APP_DIR, 'google_credentials.json')  # Where to save decoded file
-    
-    # Set up Google credentials file
-    try:
-        if GOOGLE_CREDS_BASE64:
-            print("Found Google credentials in environment")
-            print(f"Credentials length: {len(GOOGLE_CREDS_BASE64)}")
-            
-            # Ensure string is properly padded for base64
-            padding_needed = len(GOOGLE_CREDS_BASE64) % 4
-            if padding_needed:
-                GOOGLE_CREDS_BASE64 += '=' * (4 - padding_needed)
-                print("Added padding to base64 string")
-            
-            try:
-                credentials_content = base64.b64decode(GOOGLE_CREDS_BASE64).decode('utf-8')
-                print("Successfully decoded credentials")
+    def _setup_google_credentials(self):
+        try:
+            if self.GOOGLE_CREDS_BASE64:
+                print("Found Google credentials in environment")
+                credentials_content = base64.b64decode(self.GOOGLE_CREDS_BASE64).decode('utf-8')
+                os.makedirs(self.APP_DIR, exist_ok=True)
                 
-                # Ensure APP_DIR exists
-                os.makedirs(APP_DIR, exist_ok=True)
-                print(f"Created/verified APP_DIR: {APP_DIR}")
-                
-                # Write credentials to file
-                with open(GOOGLE_CREDS_PATH, 'w') as f:
+                with open(self.GOOGLE_CREDS_PATH, 'w') as f:
                     f.write(credentials_content)
-                print(f"Successfully wrote credentials to {GOOGLE_CREDS_PATH}")
-                
-                # Verify the file exists and is readable
-                if os.path.exists(GOOGLE_CREDS_PATH):
-                    print("Verified credentials file exists")
-                    GOOGLE_CREDENTIALS_FILE = GOOGLE_CREDS_PATH
-                else:
-                    print("Warning: Credentials file not found after writing")
-                    GOOGLE_CREDENTIALS_FILE = None
-                    
-            except Exception as decode_error:
-                print(f"Error decoding credentials: {decode_error}")
-                GOOGLE_CREDENTIALS_FILE = None
-        else:
-            print("Warning: No Google credentials found in environment")
-            GOOGLE_CREDENTIALS_FILE = None
-    except Exception as e:
-        print(f"Error setting up Google credentials: {e}")
-        GOOGLE_CREDENTIALS_FILE = None
-
-    # Initialize Anthropic client configuration
-    if not ANTHROPIC_API_KEY:
-        print("Warning: No Anthropic API key found in environment")
-
-    # Validate required configurations
-    @classmethod
-    def validate_config(cls):
+                print(f"Successfully wrote credentials to {self.GOOGLE_CREDS_PATH}")
+                self.GOOGLE_CREDENTIALS_FILE = self.GOOGLE_CREDS_PATH
+            else:
+                print("Warning: No Google credentials found in environment")
+        except Exception as e:
+            print(f"Error setting up Google credentials: {e}")
+            
+    def validate_config(self):
         missing_vars = []
         required_vars = {
-            'API_KEY': cls.ANTHROPIC_API_KEY,
-            'SLACK_BOT_TOKEN': cls.SLACK_BOT_TOKEN,
-            'GOOGLE_CREDENTIALS_FILE': cls.GOOGLE_CREDS_BASE64,
-            'GOOGLE_SHEET_NAME': cls.GOOGLE_SHEET_NAME,
-            'GOOGLE_SHEET_KEY': cls.GOOGLE_SHEET_KEY
+            'API_KEY': self.ANTHROPIC_API_KEY,
+            'SLACK_BOT_TOKEN': self.SLACK_BOT_TOKEN,
+            'GOOGLE_CREDENTIALS_FILE': self.GOOGLE_CREDS_BASE64,
+            'GOOGLE_SHEET_NAME': self.GOOGLE_SHEET_NAME,
+            'GOOGLE_SHEET_KEY': self.GOOGLE_SHEET_KEY
         }
         
         for var_name, var_value in required_vars.items():
             if not var_value:
                 missing_vars.append(var_name)
-            else:
-                print(f"Found {var_name} in environment")
         
         if missing_vars:
             print(f"Missing required environment variables: {', '.join(missing_vars)}")
             return False
         return True
-
-    @classmethod
-    def debug_print_env(cls):
-        """Print debug information about environment variables"""
-        print("\nEnvironment Debug Information:")
-        print(f"ANTHROPIC_API_KEY present: {bool(cls.ANTHROPIC_API_KEY)}")
-        print(f"SLACK_BOT_TOKEN present: {bool(cls.SLACK_BOT_TOKEN)}")
-        print(f"GOOGLE_CREDS_BASE64 length: {len(cls.GOOGLE_CREDS_BASE64) if cls.GOOGLE_CREDS_BASE64 else 0}")
-        print(f"GOOGLE_SHEET_NAME: {cls.GOOGLE_SHEET_NAME}")
-        print(f"APP_DIR exists: {os.path.exists(cls.APP_DIR)}")
-        print(f"Credentials file exists: {os.path.exists(cls.GOOGLE_CREDENTIALS_FILE) if cls.GOOGLE_CREDENTIALS_FILE else False}")
-
-    
+  
 
     
     SUPPORTED_CURRENCIES = ['AED', 'USD', 'GBP', 'EUR']

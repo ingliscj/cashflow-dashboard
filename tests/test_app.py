@@ -28,7 +28,7 @@ def mock_env_vars(monkeypatch):
 def test_config_initialization(mock_env_vars):
     """Test Config class initialization and environment variable loading"""
     with patch.dict('os.environ', mock_env_vars, clear=True):
-        config = Config()
+        config = Config()  # Now creates a new instance with our mocked environment
         assert config.ANTHROPIC_API_KEY == mock_env_vars['API_KEY']
         assert config.SLACK_BOT_TOKEN == mock_env_vars['SLACK_BOT_TOKEN']
         assert config.GOOGLE_SHEET_NAME == mock_env_vars['GOOGLE_SHEET_NAME']
