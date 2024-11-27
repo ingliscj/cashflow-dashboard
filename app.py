@@ -1108,7 +1108,11 @@ processor = InvoiceProcessor()
 optimizer = CashflowOptimizer()
 app.json_encoder = JSONEncoder
 from email_processor import EmailProcessor
-email_processor = EmailProcessor()        
+try:
+    email_processor = EmailProcessor()
+except Exception as e:
+    print(f"Warning: Email processor not initialized: {e}")
+    email_processor = None
 
 
 @app.route('/')

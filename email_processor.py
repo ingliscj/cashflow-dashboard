@@ -40,13 +40,25 @@ class GmailConfig:
         print(f"Error setting up Gmail credentials: {e}")
         GMAIL_CREDS_PATH = None
 
+# email_processor.py
 class EmailProcessor:
     def __init__(self):
         self.SCOPES = ['https://www.googleapis.com/auth/gmail.readonly']
-        self.service = self.setup_gmail_service()
         self.invoice_processor = InvoiceProcessor()
-        self.scheduler = BackgroundScheduler()
-        self.setup_scheduler()
+        self.scheduler = None
+        
+        # Only set up Gmail service if credentials exist
+        if GmailConfig.GMAIL_CREDS_PATH:
+            try:
+                self.service = self.setup_gmail_service()
+                self.scheduler = BackgroundScheduler()
+                self.setup_scheduler()
+                print("Email processor initialized successfully")
+            except Exception as e:
+                print(f"Failed to initialize email processor: {e}")
+        else:
+            print("Email processor not initialized - missing Gmail credentials")
+
 
     def setup_gmail_service(self):
         creds = None
@@ -73,6 +85,7 @@ class EmailProcessor:
                 pickle.dump(creds, token)
 
         return build('gmail', 'v1', credentials=creds)
+
 
     def setup_scheduler(self):
         self.scheduler.add_job(self.check_new_emails, 'interval', minutes=15)
