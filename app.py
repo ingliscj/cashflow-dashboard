@@ -24,6 +24,7 @@ class Config:
     # Google Sheet Configuration
     GOOGLE_SHEET_NAME = os.getenv('GOOGLE_SHEET_NAME')
     GOOGLE_SHEET_KEY = os.getenv('GOOGLE_SHEET_KEY')
+
     
     # File paths and directories
     BASE_TEMP_DIR = tempfile.gettempdir()
