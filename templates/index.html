@@ -12,104 +12,211 @@
     <!-- Tailwind CSS -->
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="bg-gray-50">
     <div id="root">Loading Dashboard...</div>
     
     <script type="text/babel">
+        function SummaryCard({ title, value, valueClass = "text-indigo-600" }) {
+            return (
+                <div className="bg-white rounded-xl shadow-md p-6">
+                    <h3 className="text-gray-700 font-semibold mb-2">{title}</h3>
+                    <p className={`text-2xl font-bold ${valueClass}`}>{value}</p>
+                </div>
+            );
+        }
+
         function Dashboard() {
             const [data, setData] = React.useState(null);
             const [loading, setLoading] = React.useState(true);
             const [error, setError] = React.useState(null);
 
             React.useEffect(() => {
+                console.log('Fetching data...');
                 fetch('/cashflow')
                     .then(res => res.json())
                     .then(data => {
-                        console.log('Data received:', data);
+                        console.log('Received data:', data); // Debug log
                         setData(data);
                         setLoading(false);
                     })
                     .catch(err => {
-                        console.error('Error fetching data:', err);
-                        setError('Failed to load data');
+                        console.error('Error:', err);
+                        setError('Failed to load dashboard data');
                         setLoading(false);
                     });
             }, []);
 
             if (loading) {
                 return (
-                    <div className="p-8 text-xl">
-                        Loading dashboard data...
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-xl text-gray-600">Loading dashboard data...</div>
                     </div>
                 );
             }
 
             if (error) {
                 return (
-                    <div className="p-8 text-red-500">
-                        {error}
+                    <div className="min-h-screen flex items-center justify-center">
+                        <div className="text-xl text-red-600">{error}</div>
                     </div>
                 );
             }
 
-            return (
-                <div className="min-h-screen bg-gray-50 p-8">
-                    <h1 className="text-3xl font-bold mb-8">Cashflow Dashboard</h1>
-                    
-                    {/* Summary Cards */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
-                        <div className="bg-white p-6 rounded-lg shadow">
-                            <h3 className="text-lg font-semibold mb-2">Total Upcoming Payments</h3>
-                            <p className="text-2xl font-bold">
-                                {new Intl.NumberFormat('en-US', {
-                                    style: 'currency',
-                                    currency: 'AED'
-                                }).format(data?.total_upcoming_payments || 0)}
-                            </p>
-                        </div>
-                        <div className="bg-white p-6 rounded-lg shadow">
-                            <h3 className="text-lg font-semibold mb-2">Period</h3>
-                            <p className="text-2xl font-bold">{data?.period || 'N/A'}</p>
-                        </div>
-                        <div className="bg-white p-6 rounded-lg shadow">
-                            <h3 className="text-lg font-semibold mb-2">Total Invoices</h3>
-                            <p className="text-2xl font-bold">{data?.summary?.total_invoices || 0}</p>
-                        </div>
-                    </div>
+            // Calculate totals for each currency
+            const totals = data?.invoice_list?.reduce((acc, invoice) => {
+                const currency = invoice.currency || 'AED';
+                acc[currency] = (acc[currency] || 0) + invoice.amount;
+                return acc;
+            }, {}) || {};
 
-                    {/* Recommendations Table */}
-                    {data?.daily_recommendations && (
-                        <div className="bg-white rounded-lg shadow">
-                            <h2 className="text-xl font-semibold p-6 border-b">Payment Recommendations</h2>
+            return (
+                <div className="min-h-screen p-6 lg:p-8">
+                    <div className="max-w-7xl mx-auto">
+                        <h1 className="text-3xl font-bold text-gray-900 mb-8">Cashflow Dashboard</h1>
+                        
+                        {/* Summary Cards */}
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                            <SummaryCard 
+                                title="Total Outstanding" 
+                                value={Object.entries(totals).map(([currency, amount]) => (
+                                    new Intl.NumberFormat('en-US', {
+                                        style: 'currency',
+                                        currency: currency
+                                    }).format(amount)
+                                )).join(' + ')}
+                            />
+                            <SummaryCard 
+                                title="Period" 
+                                value={data?.period || 'Next 30 days'}
+                                valueClass="text-gray-900"
+                            />
+                            <SummaryCard 
+                                title="Total Invoices" 
+                                value={data?.invoice_list?.length || 0}
+                            />
+                        </div>
+
+                        {/* Invoice Sections */}
+                        <div className="space-y-8">
+                            {/* Past Due Invoices */}
+                            <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                                <div className="px-6 py-4 border-b border-gray-200 bg-red-50">
+                                    <h2 className="text-xl font-semibold text-red-700">Past Due Invoices</h2>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice ID</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {data?.invoice_list?.filter(invoice => invoice.status === 'past_due').map((invoice, index) => (
+                                                <tr key={index} className="hover:bg-red-50">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{invoice.invoice_number}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{invoice.entity}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-red-600 font-medium">{invoice.due_date}</td>
+                                                    <td className="px-6 py-4 text-sm text-gray-500">{invoice.description}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                        {new Intl.NumberFormat('en-US', {
+                                                            style: 'currency',
+                                                            currency: invoice.currency
+                                                        }).format(invoice.amount)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+
+                            {/* Upcoming Invoices */}
+                            <div className="bg-white rounded-xl shadow-md overflow-hidden mb-6">
+                                <div className="px-6 py-4 border-b border-gray-200 bg-green-50">
+                                    <h2 className="text-xl font-semibold text-green-700">Upcoming Invoices</h2>
+                                </div>
+                                <div className="overflow-x-auto">
+                                    <table className="min-w-full divide-y divide-gray-200">
+                                        <thead className="bg-gray-50">
+                                            <tr>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Invoice ID</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Due Date</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Description</th>
+                                                <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Amount</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody className="bg-white divide-y divide-gray-200">
+                                            {data?.invoice_list?.filter(invoice => invoice.status === 'upcoming').map((invoice, index) => (
+                                                <tr key={index} className="hover:bg-green-50">
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{invoice.invoice_number}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{invoice.entity}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm text-green-600 font-medium">{invoice.due_date}</td>
+                                                    <td className="px-6 py-4 text-sm text-gray-500">{invoice.description}</td>
+                                                    <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                                                        {new Intl.NumberFormat('en-US', {
+                                                            style: 'currency',
+                                                            currency: invoice.currency
+                                                        }).format(invoice.amount)}
+                                                    </td>
+                                                </tr>
+                                            ))}
+                                        </tbody>
+                                    </table>
+                                </div>
+                            </div>
+                        
+
+                        {/* Total Outstanding by Entity and Currency */}
+                        <div className="bg-white rounded-xl shadow-md overflow-hidden">
+                            <div className="px-6 py-4 border-b border-gray-200">
+                                <h2 className="text-xl font-semibold text-gray-900">Total Outstanding by Entity and Currency</h2>
+                            </div>
                             <div className="overflow-x-auto">
-                                <table className="w-full">
+                                <table className="min-w-full divide-y divide-gray-200">
                                     <thead className="bg-gray-50">
                                         <tr>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Date</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Entity</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Amount</th>
-                                            <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Recommendation</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Entity</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">AED</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">USD</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">GBP</th>
+                                            <th scope="col" className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">EUR</th>
                                         </tr>
                                     </thead>
-                                    <tbody className="divide-y divide-gray-200">
-                                        {data.daily_recommendations.map((rec, index) => (
+                                    <tbody className="bg-white divide-y divide-gray-200">
+                                        {Object.entries(
+                                            (data?.invoice_list || []).reduce((acc, invoice) => {
+                                                const entity = invoice.entity;
+                                                const currency = invoice.currency || 'AED';
+                                                if (!acc[entity]) acc[entity] = {};
+                                                acc[entity][currency] = (acc[entity][currency] || 0) + invoice.amount;
+                                                return acc;
+                                            }, {})
+                                        ).map(([entity, currencies], index) => (
                                             <tr key={index} className="hover:bg-gray-50">
-                                                <td className="px-6 py-4 whitespace-nowrap">{rec.date}</td>
-                                                <td className="px-6 py-4">{rec.entity}</td>
-                                                <td className="px-6 py-4">
-                                                    {new Intl.NumberFormat('en-US', {
-                                                        style: 'currency',
-                                                        currency: 'AED'
-                                                    }).format(rec.amount)}
-                                                </td>
-                                                <td className="px-6 py-4">{rec.recommendation}</td>
+                                                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">{entity}</td>
+                                                {['AED', 'USD', 'GBP', 'EUR'].map(currency => (
+                                                    <td key={currency} className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                                                        {currencies[currency] ? 
+                                                            new Intl.NumberFormat('en-US', {
+                                                                style: 'currency',
+                                                                currency: currency
+                                                            }).format(currencies[currency]) 
+                                                            : '-'}
+                                                    </td>
+                                                ))}
                                             </tr>
                                         ))}
                                     </tbody>
                                 </table>
                             </div>
                         </div>
-                    )}
+                    </div>
+                </div>
                 </div>
             );
         }
