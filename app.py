@@ -15,8 +15,15 @@ from decimal import Decimal
 from typing import Optional, Dict, List
 from datetime import datetime
 import pandas as pd 
+from dotenv import load_dotenv
 
 class Config:
+# Only load .env file in development
+    if not os.getenv('RENDER'):
+        print("Loading .env file for local development")
+        load_dotenv()
+    else:
+        print("Running on Render, using environment variables")
     # API Keys and Tokens
     ANTHROPIC_API_KEY = os.getenv('API_KEY')  
     SLACK_BOT_TOKEN = os.getenv('SLACK_BOT_TOKEN')
